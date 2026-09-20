@@ -1,0 +1,1202 @@
+<!DOCTYPE html>
+<html lang="bn" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Reel Forge — Batch Video Editor</title>
+<style>
+@font-face{
+  font-family:'Forge Sans';
+  src:local('Noto Sans'), local('Arial'), local('sans-serif');
+  font-weight:100 900;
+  font-display:swap;
+}
+
+:root{
+  --bg:#12141a;
+  --panel:#1a1d25;
+  --panel-2:#20242e;
+  --border:#2b303c;
+  --text:#e9e7e1;
+  --text-dim:#9aa0ad;
+  --accent:#d9531e;
+  --accent-soft:rgba(217,83,30,0.18);
+  --ok:#4caf7d;
+  --warn:#e0b23a;
+  --danger:#d9463e;
+  --track:#2b303c;
+  --shadow:0 8px 24px rgba(0,0,0,0.35);
+  --radius:10px;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  box-sizing:border-box;
+}
+:root[data-theme="light"]{
+  --bg:#f1ede4;
+  --panel:#ffffff;
+  --panel-2:#f7f4ee;
+  --border:#ddd6c7;
+  --text:#221f1a;
+  --text-dim:#6b6458;
+  --accent:#c94a1c;
+  --accent-soft:rgba(201,74,28,0.12);
+  --track:#e2dccd;
+  --shadow:0 8px 24px rgba(0,0,0,0.08);
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    --bg:#f1ede4; --panel:#ffffff; --panel-2:#f7f4ee; --border:#ddd6c7;
+    --text:#221f1a; --text-dim:#6b6458; --accent:#c94a1c; --accent-soft:rgba(201,74,28,0.12); --track:#e2dccd;
+  }
+}
+*{box-sizing:border-box;}
+html,body{height:100%;}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Forge Sans',system-ui,sans-serif;
+  font-size:14px;
+  line-height:1.4;
+  overflow:hidden;
+}
+::-webkit-scrollbar{width:9px;height:9px;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:6px;}
+::-webkit-scrollbar-track{background:transparent;}
+
+#app{
+  display:flex;
+  flex-direction:column;
+  height:100vh;
+  height:100dvh;
+}
+
+/* ---------- top bar ---------- */
+#topbar{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  padding:10px 16px;
+  padding-top:calc(10px + env(safe-area-inset-top,0px));
+  background:var(--panel);
+  border-bottom:1px solid var(--border);
+  flex:0 0 auto;
+}
+#brand{
+  display:flex;align-items:center;gap:10px;
+  font-weight:700;font-size:16px;letter-spacing:0.2px;
+}
+#brand .dot{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent);}
+#topbar .spacer{flex:1;}
+.pill-btn{
+  display:inline-flex;align-items:center;gap:6px;
+  background:var(--panel-2);
+  border:1px solid var(--border);
+  color:var(--text);
+  padding:7px 13px;
+  border-radius:999px;
+  font-size:13px;
+  cursor:pointer;
+  transition:background .15s,border-color .15s;
+  font-family:inherit;
+}
+.pill-btn:hover{border-color:var(--accent);}
+.pill-btn.active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);}
+
+/* ---------- layout ---------- */
+#main{
+  flex:1 1 auto;
+  display:grid;
+  grid-template-columns:280px 1fr 360px;
+  min-height:0;
+}
+@media (max-width: 980px){
+  #main{grid-template-columns:1fr; grid-template-rows:auto auto auto;overflow-y:auto;}
+  #stage-col{min-height:340px;}
+}
+
+.col{
+  min-height:0;
+  display:flex;
+  flex-direction:column;
+  border-right:1px solid var(--border);
+  overflow:hidden;
+}
+.col:last-child{border-right:none;}
+.col-header{
+  padding:12px 14px 8px;
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:.09em;
+  color:var(--text-dim);
+  flex:0 0 auto;
+}
+.col-scroll{
+  flex:1 1 auto;
+  overflow-y:auto;
+  padding:0 14px 16px;
+}
+
+/* ---------- queue ---------- */
+.upload-row{display:flex;gap:8px;margin-bottom:12px;}
+.upload-btn{
+  flex:1;
+  border:1.5px dashed var(--border);
+  border-radius:var(--radius);
+  background:var(--panel-2);
+  color:var(--text-dim);
+  padding:12px 8px;
+  text-align:center;
+  font-size:12px;
+  cursor:pointer;
+  transition:border-color .15s,color .15s;
+}
+.upload-btn:hover{border-color:var(--accent);color:var(--accent);}
+.upload-btn input{display:none;}
+.queue-item{
+  background:var(--panel-2);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:9px 10px;
+  margin-bottom:8px;
+  cursor:pointer;
+  position:relative;
+}
+.queue-item.selected{border-color:var(--accent);}
+.queue-item .name{font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding-right:18px;}
+.queue-item .meta{font-family:var(--mono);font-size:10.5px;color:var(--text-dim);margin-top:2px;}
+.queue-item .rm{position:absolute;top:8px;right:8px;color:var(--text-dim);cursor:pointer;font-size:14px;line-height:1;}
+.queue-item .rm:hover{color:var(--danger);}
+.queue-bar{height:3px;background:var(--track);border-radius:3px;margin-top:7px;overflow:hidden;}
+.queue-bar > div{height:100%;background:var(--accent);width:0%;transition:width .2s;}
+.status-tag{display:inline-block;font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;padding:1px 6px;border-radius:4px;margin-top:5px;font-family:var(--mono);}
+.status-queued{background:var(--track);color:var(--text-dim);}
+.status-processing{background:var(--accent-soft);color:var(--accent);}
+.status-done{background:rgba(76,175,125,.15);color:var(--ok);}
+.status-error{background:rgba(217,70,62,.15);color:var(--danger);}
+.empty-hint{color:var(--text-dim);font-size:12px;padding:16px 4px;text-align:center;}
+
+/* ---------- stage ---------- */
+#stage-col{align-items:center;justify-content:flex-start;padding:18px 20px;overflow-y:auto;}
+#stageWrap{width:100%;max-width:640px;}
+#stage{
+  position:relative;
+  width:100%;
+  aspect-ratio:16/9;
+  background:#000;
+  border-radius:var(--radius);
+  overflow:hidden;
+  box-shadow:var(--shadow);
+  border:1px solid var(--border);
+}
+#previewVideo{width:100%;height:100%;object-fit:contain;background:#000;display:block;}
+.overlay-layer{position:absolute;inset:0;pointer-events:none;}
+.ov-el{
+  position:absolute;
+  cursor:grab;
+  pointer-events:auto;
+  user-select:none;
+  transform:translate(-50%,-50%);
+  border:1px dashed transparent;
+}
+.ov-el:hover, .ov-el.dragging{border-color:var(--accent);}
+.ov-el img{display:block;width:100%;height:auto;pointer-events:none;}
+.ov-text{
+  white-space:pre-wrap;
+  font-family:'Forge Sans',sans-serif;
+  color:#fff;
+  text-shadow:0 1px 4px rgba(0,0,0,.6);
+  text-align:center;
+  min-width:20px;
+}
+#noVideoMsg{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  color:var(--text-dim);font-size:13px;text-align:center;padding:20px;
+}
+.transport{display:flex;align-items:center;gap:10px;margin-top:12px;}
+.transport button{
+  background:var(--panel-2);border:1px solid var(--border);color:var(--text);
+  width:34px;height:34px;border-radius:50%;cursor:pointer;font-size:14px;
+  display:flex;align-items:center;justify-content:center;
+}
+.transport button:hover{border-color:var(--accent);}
+#seek{flex:1;accent-color:var(--accent);}
+#timeLabel{font-family:var(--mono);font-size:11px;color:var(--text-dim);min-width:92px;text-align:right;}
+
+/* ---------- inspector ---------- */
+.acc{border:1px solid var(--border);border-radius:var(--radius);margin-bottom:10px;background:var(--panel-2);overflow:hidden;}
+.acc-head{
+  padding:10px 12px;display:flex;align-items:center;justify-content:space-between;
+  cursor:pointer;font-size:12.5px;font-weight:700;
+}
+.acc-head .car{transition:transform .15s;color:var(--text-dim);font-size:11px;}
+.acc.open .car{transform:rotate(90deg);}
+.acc-body{padding:0 12px 12px;display:none;}
+.acc.open .acc-body{display:block;}
+.field{margin-bottom:11px;}
+.field label{display:flex;justify-content:space-between;font-size:11.5px;color:var(--text-dim);margin-bottom:5px;}
+.field label .val{font-family:var(--mono);color:var(--text);}
+input[type=range]{width:100%;accent-color:var(--accent);}
+input[type=text],textarea,select{
+  width:100%;background:var(--panel);border:1px solid var(--border);color:var(--text);
+  border-radius:6px;padding:7px 9px;font-family:inherit;font-size:12.5px;resize:vertical;
+}
+textarea{min-height:52px;}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+.btn{
+  background:var(--panel);border:1px solid var(--border);color:var(--text);
+  padding:6px 8px;border-radius:6px;font-size:11.5px;cursor:pointer;font-family:inherit;
+  display:flex;align-items:center;justify-content:center;gap:4px;
+}
+.btn:hover{border-color:var(--accent);}
+.btn.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);}
+.btn-block{width:100%;margin-top:4px;}
+.slot{border:1px solid var(--border);border-radius:8px;padding:9px;margin-bottom:9px;background:var(--panel);}
+.slot-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;font-size:11.5px;font-weight:700;}
+.slot-head .clr{color:var(--text-dim);cursor:pointer;font-size:11px;}
+.file-mini{font-size:10.5px;color:var(--text-dim);font-family:var(--mono);margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.arrows{display:grid;grid-template-columns:repeat(3,28px);grid-template-rows:repeat(2,26px);gap:4px;justify-content:center;margin:6px 0;}
+.arrows button{grid-column:auto;}
+.corner-row{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;}
+.dim{color:var(--text-dim);font-size:11px;}
+
+/* ---------- bottom bar ---------- */
+#bottombar{
+  flex:0 0 auto;
+  border-top:1px solid var(--border);
+  background:var(--panel);
+  padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));
+  display:flex;
+  align-items:center;
+  gap:14px;
+}
+#bottombar .prog{flex:1;height:6px;background:var(--track);border-radius:4px;overflow:hidden;}
+#bottombar .prog > div{height:100%;background:var(--accent);width:0%;transition:width .15s;}
+#startBtn{background:var(--accent);color:#fff;border:none;padding:9px 22px;border-radius:999px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;}
+#startBtn:disabled{opacity:.5;cursor:default;}
+#stopBtn{background:transparent;color:var(--danger);border:1px solid var(--danger);padding:9px 16px;border-radius:999px;font-weight:700;font-size:13px;cursor:pointer;font-family:inherit;}
+#stopBtn:disabled{opacity:.35;cursor:default;}
+#logToggle{color:var(--text-dim);cursor:pointer;font-size:11.5px;font-family:var(--mono);}
+#overallLabel{font-family:var(--mono);font-size:11px;color:var(--text-dim);min-width:64px;}
+
+#logPanel{
+  position:fixed;left:0;right:0;bottom:56px;
+  max-height:38vh;
+  background:var(--panel);border-top:1px solid var(--border);
+  padding:10px 16px;display:none;z-index:20;box-shadow:0 -8px 20px rgba(0,0,0,.25);
+}
+#logPanel.open{display:block;}
+#logBox{
+  font-family:var(--mono);font-size:11.5px;color:var(--text-dim);
+  max-height:30vh;overflow-y:auto;white-space:pre-wrap;
+}
+
+.hint{font-size:11px;color:var(--text-dim);margin-top:4px;line-height:1.5;}
+a.linklike{color:var(--accent);text-decoration:none;cursor:pointer;}
+
+#toast{
+  position:fixed;top:14px;left:50%;transform:translateX(-50%);
+  background:var(--panel-2);border:1px solid var(--accent);color:var(--text);
+  padding:9px 16px;border-radius:999px;font-size:12.5px;box-shadow:var(--shadow);
+  opacity:0;pointer-events:none;transition:opacity .25s, top .25s;z-index:50;
+}
+#toast.show{opacity:1;top:calc(20px + env(safe-area-inset-top,0px));}
+
+code.cmd{
+  display:block;background:var(--panel);border:1px solid var(--border);border-radius:6px;
+  padding:7px 9px;font-family:var(--mono);font-size:11px;margin-top:6px;overflow-x:auto;color:var(--text);
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div id="topbar">
+    <div id="brand"><span class="dot"></span> Reel Forge</div>
+    <div class="spacer"></div>
+    <button class="pill-btn" id="dirBtn">📁 আউটপুট ফোল্ডার</button>
+    <button class="pill-btn" id="themeBtn">🌙 থিম</button>
+  </div>
+
+  <div id="main">
+
+    <!-- LEFT: queue -->
+    <div class="col" id="queue-col">
+      <div class="col-header">মিডিয়া কিউ</div>
+      <div class="col-scroll">
+        <div class="upload-row">
+          <label class="upload-btn">🎞️ ভিডিও যোগ করুন
+            <input type="file" id="singleInput" accept="video/*" multiple>
+          </label>
+        </div>
+        <div class="upload-row">
+          <label class="upload-btn">📂 ফোল্ডার (Bulk)
+            <input type="file" id="folderInput" webkitdirectory directory multiple>
+          </label>
+        </div>
+        <div id="queueList"></div>
+        <div class="empty-hint" id="emptyHint">এখনো কোনো ভিডিও যোগ হয়নি।<br>উপরে থেকে একটি বা একাধিক ভিডিও, অথবা পুরো ফোল্ডার আপলোড করুন।</div>
+      </div>
+    </div>
+
+    <!-- CENTER: preview -->
+    <div class="col" id="stage-col">
+      <div id="stageWrap">
+        <div id="stage">
+          <video id="previewVideo" muted playsinline></video>
+          <div class="overlay-layer" id="overlayLayer"></div>
+          <div id="noVideoMsg">প্রিভিউ দেখতে কিউ থেকে একটি ভিডিও নির্বাচন করুন</div>
+        </div>
+        <div class="transport">
+          <button id="playBtn">▶</button>
+          <input type="range" id="seek" min="0" max="1000" value="0">
+          <span id="timeLabel">00:00 / 00:00</span>
+        </div>
+        <div class="hint">এই প্রিভিউ একটি আনুমানিক প্রদর্শন। আসল এক্সপোর্ট FFmpeg দিয়ে প্রসেস হয়ে সব ভিডিওতে একই সেটিংস প্রয়োগ হবে।</div>
+      </div>
+    </div>
+
+    <!-- RIGHT: inspector -->
+    <div class="col" id="inspector-col">
+      <div class="col-header">এডিটিং প্যানেল (সব ভিডিওতে একসাথে প্রযোজ্য)</div>
+      <div class="col-scroll" id="inspector"></div>
+    </div>
+
+  </div>
+
+  <div id="logPanel">
+    <div id="logBox"></div>
+  </div>
+
+  <div id="bottombar">
+    <button id="startBtn">▶ Start</button>
+    <button id="stopBtn" disabled>■ Stop</button>
+    <div class="prog"><div id="overallProg"></div></div>
+    <span id="overallLabel">0 / 0</span>
+    <span id="logToggle">লগ দেখুন ▾</span>
+  </div>
+
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ===================== state ===================== */
+const RES = {'720p':[1280,720], '1080p':[1920,1080], '2K':[2560,1440]};
+
+const state = {
+  queue: [],           // {id,file,name,size,duration,status,progress,url}
+  selectedId: null,
+  overlays: [null,null,null,null], // {file,url,size,opacity,x,y,naturalRatio}
+  text: {content:'', size:42, opacity:100, x:50, y:85},
+  audio: {file:null, url:null, name:'', volume:100, speed:100},
+  adjust: {brightness:0, contrast:0, saturation:0, preset:'none', fadeIn:0, fadeOut:0, flipH:false, flipV:false},
+  speedCtrl: {video:100, audio:100, linked:true},
+  exportCfg: {resolution:'1080p', playSound:true, shutdownAction:'none'},
+  theme:'dark',
+  running:false,
+  stopRequested:false,
+  dirHandle:null,
+  ffmpeg:null,
+  ffmpegReady:false,
+  idCounter:1,
+};
+
+let FFmpegCtor=null, fetchFile=null, toBlobURL=null;
+
+function uid(){ return 'v'+(state.idCounter++); }
+function fmtTime(s){
+  if(!isFinite(s)) return '00:00';
+  s=Math.max(0,s);
+  const m=Math.floor(s/60), sec=Math.floor(s%60);
+  return String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0');
+}
+function fmtBytes(n){
+  if(n>1e6) return (n/1e6).toFixed(1)+' MB';
+  if(n>1e3) return (n/1e3).toFixed(0)+' KB';
+  return n+' B';
+}
+function toast(msg,ms=2600){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(t._h);
+  t._h=setTimeout(()=>t.classList.remove('show'),ms);
+}
+function log(msg){
+  const box=document.getElementById('logBox');
+  const line=document.createElement('div');
+  const ts=new Date().toLocaleTimeString();
+  line.textContent=`[${ts}] ${msg}`;
+  box.appendChild(line);
+  box.scrollTop=box.scrollHeight;
+}
+
+/* ===================== theme ===================== */
+document.getElementById('themeBtn').onclick=()=>{
+  state.theme = state.theme==='dark'?'light':'dark';
+  document.documentElement.setAttribute('data-theme', state.theme);
+  document.getElementById('themeBtn').textContent = state.theme==='dark' ? '🌙 থিম' : '☀️ থিম';
+};
+
+/* ===================== queue management ===================== */
+function addFiles(fileList){
+  const files = Array.from(fileList).filter(f=>f.type.startsWith('video/') || /\.(mp4|mov|mkv|avi|webm|m4v)$/i.test(f.name));
+  if(files.length===0){ toast('কোনো ভিডিও ফাইল পাওয়া যায়নি'); return; }
+  files.forEach(file=>{
+    const id=uid();
+    const url=URL.createObjectURL(file);
+    const item={id,file,name:file.name,size:file.size,duration:0,status:'queued',progress:0,url};
+    state.queue.push(item);
+    const probe=document.createElement('video');
+    probe.preload='metadata';
+    probe.src=url;
+    probe.onloadedmetadata=()=>{ item.duration=probe.duration; renderQueue(); };
+  });
+  renderQueue();
+  if(!state.selectedId && state.queue.length) selectQueueItem(state.queue[0].id);
+  toast(`${files.length} টি ভিডিও যোগ হয়েছে`);
+}
+document.getElementById('singleInput').onchange=e=>{ addFiles(e.target.files); e.target.value=''; };
+document.getElementById('folderInput').onchange=e=>{ addFiles(e.target.files); e.target.value=''; };
+
+function removeQueueItem(id){
+  const idx=state.queue.findIndex(q=>q.id===id);
+  if(idx>-1){
+    URL.revokeObjectURL(state.queue[idx].url);
+    state.queue.splice(idx,1);
+  }
+  if(state.selectedId===id){
+    state.selectedId = state.queue.length? state.queue[0].id : null;
+    loadSelectedIntoPreview();
+  }
+  renderQueue();
+}
+
+function selectQueueItem(id){
+  state.selectedId=id;
+  renderQueue();
+  loadSelectedIntoPreview();
+}
+
+function renderQueue(){
+  const list=document.getElementById('queueList');
+  const empty=document.getElementById('emptyHint');
+  list.innerHTML='';
+  empty.style.display = state.queue.length? 'none':'block';
+  state.queue.forEach(item=>{
+    const div=document.createElement('div');
+    div.className='queue-item'+(item.id===state.selectedId?' selected':'');
+    div.onclick=(e)=>{ if(e.target.classList.contains('rm')) return; selectQueueItem(item.id); };
+    const statusClass = {queued:'status-queued',processing:'status-processing',done:'status-done',error:'status-error'}[item.status];
+    const statusLabel = {queued:'অপেক্ষমান',processing:'প্রসেসিং',done:'সম্পন্ন',error:'ত্রুটি'}[item.status];
+    div.innerHTML=`
+      <span class="rm">✕</span>
+      <div class="name">${item.name}</div>
+      <div class="meta">${fmtBytes(item.size)} · ${fmtTime(item.duration)}</div>
+      <span class="status-tag ${statusClass}">${statusLabel}</span>
+      <div class="queue-bar"><div style="width:${item.progress}%"></div></div>
+    `;
+    div.querySelector('.rm').onclick=()=>removeQueueItem(item.id);
+    list.appendChild(div);
+  });
+}
+
+/* ===================== preview player ===================== */
+const previewVideo=document.getElementById('previewVideo');
+const stage=document.getElementById('stage');
+const noVideoMsg=document.getElementById('noVideoMsg');
+
+function loadSelectedIntoPreview(){
+  const item=state.queue.find(q=>q.id===state.selectedId);
+  if(!item){ previewVideo.removeAttribute('src'); noVideoMsg.style.display='flex'; return; }
+  noVideoMsg.style.display='none';
+  previewVideo.src=item.url;
+  previewVideo.currentTime=0;
+  applyPreviewFilters();
+}
+
+document.getElementById('playBtn').onclick=()=>{
+  if(previewVideo.paused){ previewVideo.play(); document.getElementById('playBtn').textContent='⏸'; }
+  else { previewVideo.pause(); document.getElementById('playBtn').textContent='▶'; }
+};
+previewVideo.addEventListener('timeupdate',()=>{
+  if(!previewVideo.duration) return;
+  document.getElementById('seek').value = (previewVideo.currentTime/previewVideo.duration)*1000;
+  document.getElementById('timeLabel').textContent = fmtTime(previewVideo.currentTime)+' / '+fmtTime(previewVideo.duration);
+});
+previewVideo.addEventListener('ended',()=>{ document.getElementById('playBtn').textContent='▶'; });
+document.getElementById('seek').addEventListener('input',e=>{
+  if(!previewVideo.duration) return;
+  previewVideo.currentTime = (e.target.value/1000)*previewVideo.duration;
+});
+
+function applyPreviewFilters(){
+  const a=state.adjust;
+  const b = 100 + a.brightness;      // %
+  const c = 100 + a.contrast;
+  const s = 100 + a.saturation;
+  let filters = `brightness(${b}%) contrast(${c}%) saturate(${s}%)`;
+  const presetCss = {
+    none:'', grayscale:'grayscale(1)', vintage:'sepia(0.45) contrast(105%) saturate(85%)',
+    cool:'hue-rotate(-8deg) saturate(115%)', warm:'hue-rotate(8deg) saturate(110%) sepia(0.12)',
+    highcontrast:'contrast(140%) saturate(130%)'
+  };
+  filters += ' ' + (presetCss[a.preset]||'');
+  previewVideo.style.filter = filters.trim();
+  let tf='';
+  if(a.flipH) tf+=' scaleX(-1)';
+  if(a.flipV) tf+=' scaleY(-1)';
+  previewVideo.style.transform = tf.trim();
+  previewVideo.playbackRate = Math.max(0.1, Math.min(4, (state.speedCtrl.video||100)/100));
+}
+
+/* ===================== overlay layer (drag/drop UI) ===================== */
+const overlayLayer=document.getElementById('overlayLayer');
+
+function rebuildOverlayLayer(){
+  overlayLayer.innerHTML='';
+  state.overlays.forEach((ov,idx)=>{
+    if(!ov) return;
+    const el=document.createElement('div');
+    el.className='ov-el';
+    el.style.left=ov.x+'%';
+    el.style.top=ov.y+'%';
+    el.style.width=ov.size+'%';
+    el.style.opacity=(ov.opacity/100);
+    el.innerHTML=`<img src="${ov.url}">`;
+    makeDraggable(el, (xp,yp)=>{ ov.x=xp; ov.y=yp; syncOverlaySliders(idx); });
+    overlayLayer.appendChild(el);
+  });
+  if(state.text.content.trim()){
+    const el=document.createElement('div');
+    el.className='ov-el';
+    el.style.left=state.text.x+'%';
+    el.style.top=state.text.y+'%';
+    el.style.opacity=(state.text.opacity/100);
+    const inner=document.createElement('div');
+    inner.className='ov-text';
+    inner.style.fontSize=(state.text.size)+'%'; // relative marker, actual scaling below
+    inner.style.fontSize=Math.max(10,state.text.size*0.4)+'px';
+    inner.textContent=state.text.content;
+    el.appendChild(inner);
+    makeDraggable(el,(xp,yp)=>{ state.text.x=xp; state.text.y=yp; syncTextSliders(); });
+    overlayLayer.appendChild(el);
+  }
+}
+
+function makeDraggable(el,onMove){
+  el.addEventListener('pointerdown',e=>{
+    el.setPointerCapture(e.pointerId);
+    el.classList.add('dragging');
+    const move=(ev)=>{
+      const r=stage.getBoundingClientRect();
+      let xp=((ev.clientX-r.left)/r.width)*100;
+      let yp=((ev.clientY-r.top)/r.height)*100;
+      xp=Math.max(0,Math.min(100,xp));
+      yp=Math.max(0,Math.min(100,yp));
+      el.style.left=xp+'%'; el.style.top=yp+'%';
+      onMove(xp,yp);
+    };
+    const up=(ev)=>{
+      el.classList.remove('dragging');
+      window.removeEventListener('pointermove',move);
+      window.removeEventListener('pointerup',up);
+    };
+    window.addEventListener('pointermove',move);
+    window.addEventListener('pointerup',up);
+  });
+}
+
+/* ===================== inspector panel builder ===================== */
+const insp=document.getElementById('inspector');
+
+function accordion(id,title,bodyHtml,openDefault){
+  return `<div class="acc${openDefault?' open':''}" id="acc-${id}">
+    <div class="acc-head" data-acc="${id}"><span>${title}</span><span class="car">▶</span></div>
+    <div class="acc-body">${bodyHtml}</div>
+  </div>`;
+}
+
+function buildInspector(){
+  let html='';
+
+  // Overlays
+  let ovBody='';
+  for(let i=0;i<4;i++){
+    const ov=state.overlays[i];
+    ovBody+=`<div class="slot" data-ovidx="${i}">
+      <div class="slot-head"><span>ইমেজ ${i+1}</span>${ov?`<span class="clr" data-ovclear="${i}">সরান</span>`:''}</div>
+      <label class="upload-btn" style="padding:8px;">${ov?'ছবি পরিবর্তন করুন':'ছবি আপলোড করুন'}
+        <input type="file" accept="image/*" data-ovfile="${i}">
+      </label>
+      ${ov?`
+      <div class="file-mini">${ov.name||''}</div>
+      <div class="field"><label>সাইজ <span class="val">${ov.size}%</span></label>
+        <input type="range" min="5" max="100" value="${ov.size}" data-ovsize="${i}"></div>
+      <div class="field"><label>অপাসিটি <span class="val">${ov.opacity}%</span></label>
+        <input type="range" min="0" max="100" value="${ov.opacity}" data-ovop="${i}"></div>
+      <div class="dim" style="margin-bottom:4px;">পজিশন (ড্র্যাগ করেও সরাতে পারবেন)</div>
+      <div class="arrows">
+        <span></span><button data-ovnudge="${i},0,-1">▲</button><span></span>
+        <button data-ovnudge="${i},-1,0">◀</button><span></span><button data-ovnudge="${i},1,0">▶</button>
+      </div>
+      <div style="text-align:center;margin-bottom:6px;"><button class="btn" data-ovnudge="${i},0,1" style="width:60px;margin:0 auto;">▼</button></div>
+      <div class="corner-row">
+        <button class="btn" data-ovcorner="${i},10,10">↖</button>
+        <button class="btn" data-ovcorner="${i},90,10">↗</button>
+        <button class="btn" data-ovcorner="${i},50,50">●</button>
+        <button class="btn" data-ovcorner="${i},10,90">↙</button>
+        <button class="btn" data-ovcorner="${i},90,90">↘</button>
+      </div>`:''}
+    </div>`;
+  }
+  html+=accordion('overlay','🖼️ ওভারলে ইমেজ (৪টি স্লট)',ovBody,true);
+
+  // Text
+  const t=state.text;
+  html+=accordion('text','✍️ টেক্সট যোগ করুন',`
+    <div class="field"><label>টেক্সট</label><textarea id="txtContent" placeholder="এখানে টেক্সট লিখুন...">${t.content}</textarea></div>
+    <div class="field"><label>সাইজ <span class="val">${t.size}</span></label><input type="range" min="10" max="120" value="${t.size}" id="txtSize"></div>
+    <div class="field"><label>অপাসিটি <span class="val">${t.opacity}%</span></label><input type="range" min="0" max="100" value="${t.opacity}" id="txtOp"></div>
+    <div class="dim" style="margin-bottom:4px;">পজিশন (ড্র্যাগ করেও সরাতে পারবেন)</div>
+    <div class="arrows">
+      <span></span><button id="txtUp">▲</button><span></span>
+      <button id="txtLeft">◀</button><span></span><button id="txtRight">▶</button>
+    </div>
+    <div style="text-align:center;"><button class="btn" id="txtDown" style="width:60px;margin:0 auto;">▼</button></div>
+  `,false);
+
+  // Audio
+  const au=state.audio;
+  html+=accordion('audio','🎵 অডিও',`
+    <label class="upload-btn">${au.file?'অডিও পরিবর্তন করুন':'বাহ্যিক অডিও আপলোড করুন'}
+      <input type="file" accept="audio/*" id="audioFile">
+    </label>
+    ${au.file?`<div class="file-mini" style="margin-top:6px;">${au.name}</div>`:''}
+    <div class="field" style="margin-top:9px;"><label>ভলিউম <span class="val">${au.volume}%</span></label>
+      <input type="range" min="0" max="200" value="${au.volume}" id="audioVol"></div>
+    <div class="field"><label>অডিও স্পিড <span class="val">${(au.speed/100).toFixed(2)}x</span></label>
+      <input type="range" min="50" max="200" value="${au.speed}" id="audioSpeed"></div>
+    <div class="hint">বাহ্যিক অডিও যোগ করলে তা মূল ভিডিওর অডিওর সাথে মিক্স হবে, এবং কিউতে থাকা সব ভিডিওতে একইভাবে প্রয়োগ হবে।</div>
+  `,false);
+
+  // Adjustments
+  const a=state.adjust;
+  const presets=[['none','কোনোটি না'],['grayscale','গ্রেস্কেল'],['vintage','ভিনটেজ'],['cool','কুল'],['warm','ওয়ার্ম'],['highcontrast','হাই কনট্রাস্ট']];
+  html+=accordion('adjust','🎨 ভিডিও অ্যাডজাস্টমেন্ট',`
+    <div class="field"><label>ব্রাইটনেস <span class="val">${a.brightness}</span></label><input type="range" min="-100" max="100" value="${a.brightness}" id="adjBright"></div>
+    <div class="field"><label>কনট্রাস্ট <span class="val">${a.contrast}</span></label><input type="range" min="-100" max="100" value="${a.contrast}" id="adjContrast"></div>
+    <div class="field"><label>স্যাচুরেশন <span class="val">${a.saturation}</span></label><input type="range" min="-100" max="100" value="${a.saturation}" id="adjSat"></div>
+    <div class="field"><label>ফিল্টার প্রিসেট</label>
+      <div class="grid2" id="presetGrid">
+        ${presets.map(p=>`<button class="btn${a.preset===p[0]?' on':''}" data-preset="${p[0]}">${p[1]}</button>`).join('')}
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>ফেড ইন (সেকেন্ড)</label><input type="text" inputmode="decimal" id="fadeIn" value="${a.fadeIn}"></div>
+      <div class="field"><label>ফেড আউট (সেকেন্ড)</label><input type="text" inputmode="decimal" id="fadeOut" value="${a.fadeOut}"></div>
+    </div>
+    <div class="grid2">
+      <button class="btn${a.flipH?' on':''}" id="flipH">⇋ Horizontal Flip</button>
+      <button class="btn${a.flipV?' on':''}" id="flipV">⇅ Vertical Flip</button>
+    </div>
+  `,false);
+
+  // Speed
+  const sp=state.speedCtrl;
+  html+=accordion('speed','⚡ স্পিড কন্ট্রোল',`
+    <div class="field"><label>ভিডিও স্পিড <span class="val">${(sp.video/100).toFixed(2)}x</span></label>
+      <input type="range" min="25" max="400" value="${sp.video}" id="spVideo"></div>
+    <div class="field" style="display:flex;align-items:center;gap:8px;">
+      <input type="checkbox" id="spLink" ${sp.linked?'checked':''} style="width:auto;">
+      <label style="margin:0;flex:1;">অডিও স্পিড ভিডিওর সাথে লিংকড রাখুন</label>
+    </div>
+    <div class="field"><label>অডিও স্পিড (মূল অডিও) <span class="val">${(sp.audio/100).toFixed(2)}x</span></label>
+      <input type="range" min="50" max="200" value="${sp.audio}" id="spAudio" ${sp.linked?'disabled':''}></div>
+  `,false);
+
+  // Export
+  const ex=state.exportCfg;
+  html+=accordion('export','📺 এক্সপোর্ট সেটিংস',`
+    <div class="field"><label>রেজোলিউশন</label>
+      <div class="grid4">
+        <button class="btn${ex.resolution==='720p'?' on':''}" data-res="720p">720p</button>
+        <button class="btn${ex.resolution==='1080p'?' on':''}" data-res="1080p">1080p</button>
+        <button class="btn${ex.resolution==='2K'?' on':''}" data-res="2K">2K</button>
+      </div>
+      <div class="hint">অ্যাসপেক্ট রেশিও ঠিক রাখতে প্রয়োজনে ভিডিওর চারপাশে কালো প্যাডিং যোগ হবে — কোনো স্ট্রেচ হবে না।</div>
+    </div>
+    <div class="field" style="display:flex;align-items:center;gap:8px;">
+      <input type="checkbox" id="playSound" ${ex.playSound?'checked':''} style="width:auto;">
+      <label style="margin:0;flex:1;">এক্সপোর্ট শেষে সাউন্ড অ্যালার্ট</label>
+    </div>
+    <div class="field"><label>সব এক্সপোর্ট শেষ হলে</label>
+      <div class="grid4">
+        <button class="btn${ex.shutdownAction==='none'?' on':''}" data-shutdown="none">কিছু না</button>
+        <button class="btn${ex.shutdownAction==='sleep'?' on':''}" data-shutdown="sleep">Sleep</button>
+        <button class="btn${ex.shutdownAction==='shutdown'?' on':''}" data-shutdown="shutdown">Shutdown</button>
+      </div>
+      <div class="hint">ব্রাউজার নিরাপত্তার কারণে সরাসরি PC sleep/shutdown করাতে পারে না। এই অপশন বেছে নিলে এক্সপোর্ট শেষে একটি ছোট .bat ফাইল ডাউনলোড হবে — সেটাতে ডাবল-ক্লিক করলে ৬০ সেকেন্ড পর PC সেই অ্যাকশন নেবে।</div>
+    </div>
+  `,false);
+
+  insp.innerHTML=html;
+  wireInspectorEvents();
+  rebuildOverlayLayer();
+  applyPreviewFilters();
+}
+
+function syncOverlaySliders(idx){ buildInspector(); }
+function syncTextSliders(){ buildInspector(); }
+
+function wireInspectorEvents(){
+  insp.querySelectorAll('.acc-head').forEach(h=>{
+    h.onclick=()=>{ h.parentElement.classList.toggle('open'); };
+  });
+
+  // overlays
+  insp.querySelectorAll('[data-ovfile]').forEach(inp=>{
+    inp.onchange=e=>{
+      const idx=+inp.dataset.ovfile;
+      const f=e.target.files[0]; if(!f) return;
+      const url=URL.createObjectURL(f);
+      state.overlays[idx]={file:f,url,name:f.name,size:35,opacity:100,x:50,y:50};
+      buildInspector();
+    };
+  });
+  insp.querySelectorAll('[data-ovclear]').forEach(b=>{
+    b.onclick=()=>{ const idx=+b.dataset.ovclear; if(state.overlays[idx]) URL.revokeObjectURL(state.overlays[idx].url); state.overlays[idx]=null; buildInspector(); };
+  });
+  insp.querySelectorAll('[data-ovsize]').forEach(r=>{
+    r.oninput=()=>{ state.overlays[+r.dataset.ovsize].size=+r.value; rebuildOverlayLayer(); insp.querySelector(`[data-ovidx="${r.dataset.ovsize}"] .val`).textContent=r.value+'%'; };
+  });
+  insp.querySelectorAll('[data-ovop]').forEach(r=>{
+    r.oninput=()=>{ state.overlays[+r.dataset.ovop].opacity=+r.value; rebuildOverlayLayer(); };
+  });
+  insp.querySelectorAll('[data-ovnudge]').forEach(b=>{
+    b.onclick=()=>{
+      const [idx,dx,dy]=b.dataset.ovnudge.split(',').map(Number);
+      const ov=state.overlays[idx]; if(!ov) return;
+      ov.x=Math.max(0,Math.min(100,ov.x+dx*3));
+      ov.y=Math.max(0,Math.min(100,ov.y+dy*3));
+      rebuildOverlayLayer();
+    };
+  });
+  insp.querySelectorAll('[data-ovcorner]').forEach(b=>{
+    b.onclick=()=>{
+      const [idx,x,y]=b.dataset.ovcorner.split(',').map(Number);
+      const ov=state.overlays[idx]; if(!ov) return;
+      ov.x=x; ov.y=y; rebuildOverlayLayer();
+    };
+  });
+
+  // text
+  const txtContent=insp.querySelector('#txtContent');
+  if(txtContent) txtContent.oninput=()=>{ state.text.content=txtContent.value; rebuildOverlayLayer(); };
+  const txtSize=insp.querySelector('#txtSize');
+  if(txtSize) txtSize.oninput=()=>{ state.text.size=+txtSize.value; rebuildOverlayLayer(); insp.querySelector('#acc-text .val').textContent=txtSize.value; };
+  const txtOp=insp.querySelector('#txtOp');
+  if(txtOp) txtOp.oninput=()=>{ state.text.opacity=+txtOp.value; rebuildOverlayLayer(); };
+  const nudgeText=(dx,dy)=>{ state.text.x=Math.max(0,Math.min(100,state.text.x+dx*3)); state.text.y=Math.max(0,Math.min(100,state.text.y+dy*3)); rebuildOverlayLayer(); };
+  const tUp=insp.querySelector('#txtUp'); if(tUp) tUp.onclick=()=>nudgeText(0,-1);
+  const tDown=insp.querySelector('#txtDown'); if(tDown) tDown.onclick=()=>nudgeText(0,1);
+  const tLeft=insp.querySelector('#txtLeft'); if(tLeft) tLeft.onclick=()=>nudgeText(-1,0);
+  const tRight=insp.querySelector('#txtRight'); if(tRight) tRight.onclick=()=>nudgeText(1,0);
+
+  // audio
+  const audioFile=insp.querySelector('#audioFile');
+  if(audioFile) audioFile.onchange=e=>{
+    const f=e.target.files[0]; if(!f) return;
+    if(state.audio.url) URL.revokeObjectURL(state.audio.url);
+    state.audio.file=f; state.audio.url=URL.createObjectURL(f); state.audio.name=f.name;
+    buildInspector();
+  };
+  const audioVol=insp.querySelector('#audioVol');
+  if(audioVol) audioVol.oninput=()=>{ state.audio.volume=+audioVol.value; insp.querySelector('#acc-audio .val').textContent=audioVol.value+'%'; };
+  const audioSpeed=insp.querySelector('#audioSpeed');
+  if(audioSpeed) audioSpeed.oninput=()=>{ state.audio.speed=+audioSpeed.value; };
+
+  // adjustments
+  const bright=insp.querySelector('#adjBright'); if(bright) bright.oninput=()=>{ state.adjust.brightness=+bright.value; applyPreviewFilters(); insp.querySelectorAll('#acc-adjust .val')[0].textContent=bright.value; };
+  const contrast=insp.querySelector('#adjContrast'); if(contrast) contrast.oninput=()=>{ state.adjust.contrast=+contrast.value; applyPreviewFilters(); insp.querySelectorAll('#acc-adjust .val')[1].textContent=contrast.value; };
+  const sat=insp.querySelector('#adjSat'); if(sat) sat.oninput=()=>{ state.adjust.saturation=+sat.value; applyPreviewFilters(); insp.querySelectorAll('#acc-adjust .val')[2].textContent=sat.value; };
+  insp.querySelectorAll('[data-preset]').forEach(b=>{
+    b.onclick=()=>{ state.adjust.preset=b.dataset.preset; buildInspector(); document.getElementById('acc-adjust').classList.add('open'); };
+  });
+  const fadeIn=insp.querySelector('#fadeIn'); if(fadeIn) fadeIn.onchange=()=>{ state.adjust.fadeIn=Math.max(0,parseFloat(fadeIn.value)||0); };
+  const fadeOut=insp.querySelector('#fadeOut'); if(fadeOut) fadeOut.onchange=()=>{ state.adjust.fadeOut=Math.max(0,parseFloat(fadeOut.value)||0); };
+  const flipH=insp.querySelector('#flipH'); if(flipH) flipH.onclick=()=>{ state.adjust.flipH=!state.adjust.flipH; buildInspector(); document.getElementById('acc-adjust').classList.add('open'); };
+  const flipV=insp.querySelector('#flipV'); if(flipV) flipV.onclick=()=>{ state.adjust.flipV=!state.adjust.flipV; buildInspector(); document.getElementById('acc-adjust').classList.add('open'); };
+
+  // speed
+  const spVideo=insp.querySelector('#spVideo');
+  if(spVideo) spVideo.oninput=()=>{
+    state.speedCtrl.video=+spVideo.value;
+    if(state.speedCtrl.linked) state.speedCtrl.audio=+spVideo.value;
+    applyPreviewFilters();
+    insp.querySelectorAll('#acc-speed .val')[0].textContent=(spVideo.value/100).toFixed(2)+'x';
+    if(state.speedCtrl.linked) insp.querySelectorAll('#acc-speed .val')[1].textContent=(spVideo.value/100).toFixed(2)+'x';
+  };
+  const spLink=insp.querySelector('#spLink');
+  if(spLink) spLink.onchange=()=>{ state.speedCtrl.linked=spLink.checked; if(spLink.checked) state.speedCtrl.audio=state.speedCtrl.video; buildInspector(); document.getElementById('acc-speed').classList.add('open'); };
+  const spAudio=insp.querySelector('#spAudio');
+  if(spAudio) spAudio.oninput=()=>{ state.speedCtrl.audio=+spAudio.value; insp.querySelectorAll('#acc-speed .val')[1].textContent=(spAudio.value/100).toFixed(2)+'x'; };
+
+  // export
+  insp.querySelectorAll('[data-res]').forEach(b=>{
+    b.onclick=()=>{ state.exportCfg.resolution=b.dataset.res; buildInspector(); document.getElementById('acc-export').classList.add('open'); };
+  });
+  const playSound=insp.querySelector('#playSound'); if(playSound) playSound.onchange=()=>{ state.exportCfg.playSound=playSound.checked; };
+  insp.querySelectorAll('[data-shutdown]').forEach(b=>{
+    b.onclick=()=>{ state.exportCfg.shutdownAction=b.dataset.shutdown; buildInspector(); document.getElementById('acc-export').classList.add('open'); };
+  });
+}
+
+/* ===================== output folder (File System Access API) ===================== */
+document.getElementById('dirBtn').onclick=async()=>{
+  if(!window.showDirectoryPicker){ toast('এই ব্রাউজারে ফোল্ডার সিলেকশন সমর্থিত নয় — ফাইল ডাউনলোড হবে'); return; }
+  try{
+    state.dirHandle = await window.showDirectoryPicker({mode:'readwrite'});
+    document.getElementById('dirBtn').classList.add('active');
+    document.getElementById('dirBtn').textContent='📁 '+state.dirHandle.name;
+    toast('আউটপুট ফোল্ডার নির্বাচিত হয়েছে');
+  }catch(err){ /* user cancelled */ }
+};
+
+async function saveOutputFile(name, blob){
+  if(state.dirHandle){
+    try{
+      const fh = await state.dirHandle.getFileHandle(name,{create:true});
+      const w = await fh.createWritable();
+      await w.write(blob);
+      await w.close();
+      return true;
+    }catch(err){
+      log('ফোল্ডারে সেভ করা যায়নি, ডাউনলোড হিসেবে সেভ হচ্ছে: '+err.message);
+    }
+  }
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),4000);
+  return false;
+}
+
+/* ===================== log panel toggle ===================== */
+document.getElementById('logToggle').onclick=()=>{
+  const p=document.getElementById('logPanel');
+  p.classList.toggle('open');
+  document.getElementById('logToggle').textContent = p.classList.contains('open') ? 'লগ বন্ধ করুন ▴' : 'লগ দেখুন ▾';
+};
+
+/* ===================== completion sound ===================== */
+function playChime(){
+  try{
+    const ctx=new (window.AudioContext||window.webkitAudioContext)();
+    const notes=[523.25,659.25,783.99];
+    notes.forEach((freq,i)=>{
+      const o=ctx.createOscillator(); const g=ctx.createGain();
+      o.type='sine'; o.frequency.value=freq;
+      o.connect(g); g.connect(ctx.destination);
+      const t0=ctx.currentTime + i*0.14;
+      g.gain.setValueAtTime(0,t0);
+      g.gain.linearRampToValueAtTime(0.22,t0+0.02);
+      g.gain.exponentialRampToValueAtTime(0.001,t0+0.5);
+      o.start(t0); o.stop(t0+0.55);
+    });
+  }catch(e){}
+}
+
+function downloadShutdownScript(kind){
+  let cmd, label;
+  if(kind==='sleep'){ cmd='rundll32.exe powrprof.dll,SetSuspendState 0,1,0'; label='sleep'; }
+  else { cmd='shutdown /s /t 60'; label='shutdown'; }
+  const content = `@echo off\r\necho Reel Forge: সব এক্সপোর্ট সম্পন্ন হয়েছে। ৬০ সেকেন্ড পর ${label==='sleep'?'PC sleep হবে':'PC shutdown হবে'}...\r\ntimeout /t 5\r\n${cmd}\r\n`;
+  const blob=new Blob([content],{type:'text/plain'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download=`reelforge_${label}.bat`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),4000);
+}
+
+/* ===================== FFmpeg engine ===================== */
+async function ensureFFmpeg(){
+  if(state.ffmpegReady) return state.ffmpeg;
+  log('FFmpeg ইঞ্জিন লোড হচ্ছে... (প্রথমবার একটু সময় লাগতে পারে)');
+  await loadScriptOnce('https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js');
+  await loadScriptOnce('https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/umd/index.js');
+  FFmpegCtor = window.FFmpegWASM.FFmpeg;
+  fetchFile = window.FFmpegUtil.fetchFile;
+  toBlobURL = window.FFmpegUtil.toBlobURL;
+
+  const ffmpeg = new FFmpegCtor();
+  ffmpeg.on('log', ({message})=>{ log(message); });
+  ffmpeg.on('progress', ({progress})=>{
+    const item = state.queue.find(q=>q.status==='processing');
+    if(item){ item.progress = Math.min(100,Math.max(0,Math.round(progress*100))); renderQueue(); }
+  });
+
+  const baseURL='https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
+  await ffmpeg.load({
+    coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+    wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+  });
+
+  state.ffmpeg=ffmpeg;
+  state.ffmpegReady=true;
+  log('FFmpeg ইঞ্জিন প্রস্তুত।');
+  return ffmpeg;
+}
+
+function loadScriptOnce(src){
+  return new Promise((resolve,reject)=>{
+    if(document.querySelector(`script[src="${src}"]`)) return resolve();
+    const s=document.createElement('script');
+    s.src=src; s.onload=resolve; s.onerror=()=>reject(new Error('স্ক্রিপ্ট লোড ব্যর্থ: '+src));
+    document.head.appendChild(s);
+  });
+}
+
+/* ===================== filter graph builder ===================== */
+function buildFilterGraph(item, resW, resH){
+  const a=state.adjust;
+  const sp=state.speedCtrl;
+  const videoSpeedFactor = Math.max(0.25, Math.min(4, sp.video/100));
+
+  let chain = `scale=${resW}:${resH}:force_original_aspect_ratio=decrease,pad=${resW}:${resH}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1`;
+  if(a.flipH) chain += ',hflip';
+  if(a.flipV) chain += ',vflip';
+
+  const brightness=(a.brightness/100).toFixed(3);
+  const contrast=(1+a.contrast/100).toFixed(3);
+  const saturation=Math.max(0,(1+a.saturation/100)).toFixed(3);
+  chain += `,eq=brightness=${brightness}:contrast=${contrast}:saturation=${saturation}`;
+
+  const presetFilters = {
+    none:'', grayscale:',hue=s=0',
+    vintage:',curves=preset=vintage',
+    cool:',colorbalance=rs=-0.10:gs=0.0:bs=0.15',
+    warm:',colorbalance=rs=0.15:gs=0.05:bs=-0.10',
+    highcontrast:',eq=contrast=1.35:saturation=1.2'
+  };
+  chain += presetFilters[a.preset] || '';
+
+  if(videoSpeedFactor !== 1) chain += `,setpts=PTS/${videoSpeedFactor}`;
+
+  const dur = item.duration && isFinite(item.duration) ? (item.duration/videoSpeedFactor) : 0;
+  if(a.fadeIn>0) chain += `,fade=t=in:st=0:d=${a.fadeIn}`;
+  if(a.fadeOut>0 && dur>a.fadeOut) chain += `,fade=t=out:st=${(dur-a.fadeOut).toFixed(2)}:d=${a.fadeOut}`;
+
+  let filterParts = [`[0:v]${chain}[base]`];
+  let lastLabel='base';
+  let inputIdx=1; // 0 is main video
+
+  // overlays
+  state.overlays.forEach((ov)=>{
+    if(!ov) return;
+    const w = Math.max(2,Math.round(resW*(ov.size/100)));
+    const opac=(ov.opacity/100).toFixed(2);
+    filterParts.push(`[${inputIdx}:v]scale=${w}:-1,format=rgba,colorchannelmixer=aa=${opac}[ov${inputIdx}]`);
+    const nextLabel = `b${inputIdx}`;
+    filterParts.push(`[${lastLabel}][ov${inputIdx}]overlay=x=(${resW}*${(ov.x/100).toFixed(3)})-(overlay_w/2):y=(${resH}*${(ov.y/100).toFixed(3)})-(overlay_h/2)[${nextLabel}]`);
+    lastLabel=nextLabel;
+    inputIdx++;
+  });
+
+  // text (drawtext with default font, no external font file needed)
+  if(state.text.content.trim()){
+    const fontsize=Math.max(8,Math.round((state.text.size/100)*resH*0.11));
+    const opac=(state.text.opacity/100).toFixed(2);
+    const xExpr = `(${resW}*${(state.text.x/100).toFixed(3)})-(text_w/2)`;
+    const yExpr = `(${resH}*${(state.text.y/100).toFixed(3)})-(text_h/2)`;
+    filterParts.push(`[${lastLabel}]drawtext=textfile=text.txt:fontsize=${fontsize}:fontcolor=white@${opac}:x=${xExpr}:y=${yExpr}:line_spacing=4:box=0[vout]`);
+    lastLabel='vout';
+  } else {
+    filterParts.push(`[${lastLabel}]null[vout]`);
+    lastLabel='vout';
+  }
+
+  return { filterStr: filterParts.join(';'), videoOutLabel:'vout', overlayCount: state.overlays.filter(Boolean).length, videoSpeedFactor };
+}
+
+/* ===================== processing pipeline ===================== */
+async function processQueue(){
+  if(state.queue.length===0){ toast('কিউতে কোনো ভিডিও নেই'); return; }
+  state.running=true; state.stopRequested=false;
+  document.getElementById('startBtn').disabled=true;
+  document.getElementById('stopBtn').disabled=false;
+
+  let ffmpeg;
+  try{
+    ffmpeg = await ensureFFmpeg();
+  }catch(err){
+    log('FFmpeg লোড করতে ব্যর্থ: '+err.message);
+    toast('FFmpeg ইঞ্জিন লোড ব্যর্থ হয়েছে — ইন্টারনেট সংযোগ পরীক্ষা করুন');
+    state.running=false;
+    document.getElementById('startBtn').disabled=false;
+    document.getElementById('stopBtn').disabled=true;
+    return;
+  }
+
+  const [resW,resH] = RES[state.exportCfg.resolution];
+  const pending = state.queue.filter(q=>q.status!=='done');
+  let doneCount = state.queue.filter(q=>q.status==='done').length;
+  const total = state.queue.length;
+  updateOverall(doneCount,total);
+
+  if(state.text.content.trim()){
+    await ffmpeg.writeFile('text.txt', new TextEncoder().encode(state.text.content));
+  }
+  const overlayFsNames=[];
+  for(let i=0;i<state.overlays.length;i++){
+    const ov=state.overlays[i];
+    if(!ov) continue;
+    const fname=`ovimg${i}.png`;
+    await ffmpeg.writeFile(fname, await fetchFile(ov.file));
+    overlayFsNames.push({idx:i,fname});
+  }
+  let extAudioFsName=null;
+  if(state.audio.file){
+    extAudioFsName='extaudio'+(state.audio.file.name.match(/\.[a-zA-Z0-9]+$/)||['.mp3'])[0];
+    await ffmpeg.writeFile(extAudioFsName, await fetchFile(state.audio.file));
+  }
+
+  for(const item of pending){
+    if(state.stopRequested) break;
+    item.status='processing'; item.progress=0; renderQueue();
+    log(`প্রসেসিং শুরু: ${item.name}`);
+
+    try{
+      const inName = 'in_'+item.id+(item.name.match(/\.[a-zA-Z0-9]+$/)||['.mp4'])[0];
+      await ffmpeg.writeFile(inName, await fetchFile(item.file));
+
+      const g = buildFilterGraph(item, resW, resH);
+
+      const inputs = ['-i', inName];
+      overlayFsNames.forEach(o=>{
+        inputs.push('-loop','1','-i', o.fname);
+      });
+      let extAudioInputIdx=-1;
+      if(extAudioFsName){
+        inputs.push('-i', extAudioFsName);
+        extAudioInputIdx = 1 + overlayFsNames.length;
+      }
+
+      let audioFilter='';
+      let audioMapArgs=[];
+      if(extAudioFsName){
+        const parts=[];
+        parts.push(`[0:a]atempo=${g.videoSpeedFactor.toFixed(3)},volume=1.0[a0]`);
+        parts.push(`[${extAudioInputIdx}:a]atempo=${(state.audio.speed/100).toFixed(3)},volume=${(state.audio.volume/100).toFixed(3)}[a1]`);
+        parts.push(`[a0][a1]amix=inputs=2:duration=first:dropout_transition=2[aout]`);
+        audioFilter=parts.join(';');
+        audioMapArgs=['-map','[aout]'];
+      } else {
+        audioFilter = `[0:a]atempo=${g.videoSpeedFactor.toFixed(3)}[aout]`;
+        audioMapArgs=['-map','[aout]'];
+      }
+
+      const fullFilter = g.filterStr + ';' + audioFilter;
+
+      const outName='out_'+item.id+'.mp4';
+      let args = [
+        ...inputs,
+        '-filter_complex', fullFilter,
+        '-map', `[${g.videoOutLabel}]`,
+        ...audioMapArgs,
+        '-c:v','libx264','-preset','veryfast','-crf','22',
+        '-c:a','aac','-b:a','192k',
+        '-movflags','+faststart',
+        outName
+      ];
+
+      try{
+        await ffmpeg.exec(args);
+      }catch(e1){
+        log('অডিওসহ প্রসেসিং ব্যর্থ, অডিও ছাড়া চেষ্টা করা হচ্ছে (ভিডিওতে সাউন্ড নাও থাকতে পারে)...');
+        let args2 = [
+          ...inputs,
+          '-filter_complex', g.filterStr,
+          '-map', `[${g.videoOutLabel}]`,
+          '-c:v','libx264','-preset','veryfast','-crf','22',
+          '-movflags','+faststart',
+          outName
+        ];
+        if(extAudioFsName){
+          args2 = [
+            ...inputs,
+            '-filter_complex', g.filterStr + `;[${extAudioInputIdx}:a]atempo=${(state.audio.speed/100).toFixed(3)},volume=${(state.audio.volume/100).toFixed(3)}[aout]`,
+            '-map', `[${g.videoOutLabel}]`, '-map','[aout]',
+            '-c:v','libx264','-preset','veryfast','-crf','22',
+            '-c:a','aac','-b:a','192k',
+            '-movflags','+faststart',
+            outName
+          ];
+        }
+        await ffmpeg.exec(args2);
+      }
+
+      const data = await ffmpeg.readFile(outName);
+      const blob = new Blob([data.buffer], {type:'video/mp4'});
+      const outFileName = item.name.replace(/\.[a-zA-Z0-9]+$/,'') + '_edited.mp4';
+      await saveOutputFile(outFileName, blob);
+
+      item.status='done'; item.progress=100;
+      log(`✓ সম্পন্ন: ${outFileName}`);
+
+      await ffmpeg.deleteFile(inName).catch(()=>{});
+      await ffmpeg.deleteFile(outName).catch(()=>{});
+
+      doneCount++;
+      updateOverall(doneCount,total);
+    }catch(err){
+      item.status='error';
+      log(`✕ ত্রুটি (${item.name}): ${err.message||err}`);
+    }
+    renderQueue();
+  }
+
+  overlayFsNames.forEach(o=>ffmpeg.deleteFile(o.fname).catch(()=>{}));
+  if(extAudioFsName) ffmpeg.deleteFile(extAudioFsName).catch(()=>{});
+  if(state.text.content.trim()) ffmpeg.deleteFile('text.txt').catch(()=>{});
+
+  state.running=false;
+  document.getElementById('startBtn').disabled=false;
+  document.getElementById('stopBtn').disabled=true;
+
+  if(!state.stopRequested){
+    log('সব ভিডিও প্রসেসিং সম্পন্ন হয়েছে।');
+    toast('সব এক্সপোর্ট সম্পন্ন হয়েছে ✓');
+    if(state.exportCfg.playSound) playChime();
+    if(state.exportCfg.shutdownAction!=='none'){
+      downloadShutdownScript(state.exportCfg.shutdownAction);
+      toast('একটি .bat ফাইল ডাউনলোড হয়েছে — চালাতে ডাবল-ক্লিক করুন', 4500);
+    }
+  } else {
+    log('প্রসেসিং থামানো হয়েছে।');
+  }
+}
+
+function updateOverall(done,total){
+  document.getElementById('overallLabel').textContent = `${done} / ${total}`;
+  document.getElementById('overallProg').style.width = total? Math.round((done/total)*100)+'%' : '0%';
+}
+
+document.getElementById('startBtn').onclick=()=>{ processQueue(); };
+document.getElementById('stopBtn').onclick=async()=>{
+  state.stopRequested=true;
+  log('থামানোর অনুরোধ পাওয়া গেছে — বর্তমান ফাইল শেষ হলে থেমে যাবে।');
+  document.getElementById('stopBtn').disabled=true;
+  document.getElementById('stopBtn').textContent='থামছে...';
+  setTimeout(()=>{ document.getElementById('stopBtn').textContent='■ Stop'; },3000);
+};
+
+/* ===================== init ===================== */
+buildInspector();
+renderQueue();
+</script>
+</body>
+</html>
